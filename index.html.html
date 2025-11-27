@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard de Fraudes – Walmart E-commerce</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="Dashboard de monitoramento de fraudes em entregas – Walmart E-commerce na região Central da Flórida." />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-alt: #020617;
+      --card: #111827;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent-supermarket: #22c55e;
+      --accent-electronics: #3b82f6;
+      --accent-alert: #ef4444;
+      --accent: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1f2937 0, #020617 55%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.4;
+    }
+
+    header {
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(to right, rgba(15, 23, 42, 0.9), rgba(30, 64, 175, 0.4));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(10px);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    header span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nav-tab {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(15, 23, 42, 0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .nav-tab.active,
+    .nav-tab:hover {
+      border-color: var(--accent);
+      color: #e5e7eb;
+      background: rgba(79, 70, 229, 0.2);
+    }
+
+    main {
+      display: flex;
+      flex: 1;
+      padding: 16px 24px 32px;
+      gap: 16px;
+    }
+
+    .sidebar {
+      width: 260px;
+      max-width: 280px;
+      min-width: 220px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(to bottom, rgba(17, 24, 39, 0.9), rgba(15, 23, 42, 0.95));
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      height: fit-content;
+      position: sticky;
+      top: 80px;
+    }
+
+    .sidebar h3 {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .sidebar p {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .filter-group {
+      margin-top: 8px;
+    }
+
+    .filter-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    select,
+    input {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-width: 0;
+    }
+
+    .section {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.18), rgba(15, 23, 42, 0.9));
+      padding: 16px 18px 20px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .section-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .section-header span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .kpi-card {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: linear-gradient(to bottom right, rgba(15, 23, 42, 0.95), rgba(17, 24, 39, 0.95));
+      padding: 10px 12px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .kpi-value {
+      margin-top: 4px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .kpi-tag {
+      font-size: 10px;
+      margin-top: 2px;
+      color: var(--muted);
+    }
+
+    .kpi-alert {
+      color: var(--accent-alert);
+    }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .chart-card {
+      border-radius: 12px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.85);
+      padding: 10px 12px;
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .chart-title {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .chart-subtitle {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .chart-container {
+      flex: 1;
+      position: relative;
+      min-height: 200px;
+    }
+
+    .insight-box {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .insight-box strong {
+      color: #e5e7eb;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .tag-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 12px 24px;
+      font-size: 11px;
+      color: var(--muted);
+      background: #020617;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-top: 8px;
+    }
+
+    .data-table th {
+      background: rgba(15, 23, 42, 0.95);
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .data-table td {
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table tr:hover {
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    @media (max-width: 960px) {
+      main {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        position: static;
+        width: 100%;
+        max-width: 100%;
+      }
+
+      header {
+        padding: 12px 16px;
+      }
+
+      header h1 {
+        font-size: 16px;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .kpi-row {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .nav-tabs {
+        width: 100%;
+      }
+
+      .nav-tab {
+        font-size: 11px;
+        padding: 5px 10px;
+      }
+
+      main {
+        padding: 12px;
+      }
+
+      .kpi-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Mapa interativo */
+    .mapa-container {
+      flex: 1;
+      position: relative;
+      min-height: 260px;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    #mapa-regioes {
+      width: 100%;
+      height: 100%;
+    }
+
+    @media (max-width: 640px) {
+      .mapa-container {
+        min-height: 220px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div>
+      <h1>Painel de Risco Logístico – Fraudes em Entregas | Walmart E-commerce</h1>
+      <span>Este painel monitora padrões de reclamações por itens não entregues, com foco em categorias críticas e
+        regiões vulneráveis.
+        Os dados simulam um cenário real de 2023, com filtros interativos por período, região, categoria, motorista e
+        cliente.</span>
+    </div>
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-section="visao-geral">Visão Geral</button>
+      <button class="nav-tab" data-section="motoristas">Motoristas</button>
+      <button class="nav-tab" data-section="produtos">Produtos</button>
+      <button class="nav-tab" data-section="regioes">Regiões</button>
+      <button class="nav-tab" data-section="integracao">Integração</button>
+      <button class="nav-tab" data-section="consumidores">Consumidores</button>
+      <button class="nav-tab" data-section="conclusao">Conclusão</button>
+    </nav>
+  </header>
+
+  <main>
+    <aside class="sidebar">
+      <div>
+        <h3>Filtros Globais</h3>
+        <p>Simula os slicers do Power BI: período, região, categoria, motorista, cliente.</p>
+        <div class="filter-group">
+          <label class="filter-label">Período</label>
+          <select id="filtro-periodo">
+            <option value="30">Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+            <option value="365">Ano corrente</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Região</label>
+          <select id="filtro-regiao">
+            <option value="all">Central Florida (todas)</option>
+            <option value="Winter Park">Winter Park</option>
+            <option value="Altamonte Springs">Altamonte Springs</option>
+            <option value="Clermont">Clermont</option>
+            <option value="Orlando">Orlando</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Categoria de Produto</label>
+          <select id="filtro-categoria">
+            <option value="all">Todas</option>
+            <option value="Supermarket">Supermarket</option>
+            <option value="Electronics">Electronics</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Motorista (para drill-down)</label>
+          <input type="text" id="filtro-motorista" placeholder="Buscar motorista..." />
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Cliente (para drill-down)</label>
+          <input type="text" id="filtro-cliente" placeholder="Buscar cliente..." />
+        </div>
+      </div>
+
+      <div>
+        <h3>Legenda de Cores</h3>
+        <div class="legend">
+          <span class="legend-item">
+            <span class="legend-color" style="background: var(--accent-supermarket);"></span>
+            <span>Supermarket</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-color" style="background: var(--accent-electronics);"></span>
+            <span>Electronics</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-color" style="background: var(--accent-alert);"></span>
+            <span>Alertas / Fraudes</span>
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <h3>Sobre o Dashboard</h3>
+        <p>Estrutura inspirada no plano Power BI, adaptada para web: foco em KPIs, motoristas, produtos, regiões e
+          consumidores.</p>
+      </div>
+    </aside>
+
+    <section class="content">
+      <!-- VISÃO GERAL -->
+      <div class="section" data-section-id="visao-geral">
+        <div class="section-header">
+          <div>
+            <h2>Visão Geral</h2>
+            <span>KPIs globais de reclamações, perdas financeiras e distribuição por categoria/região.</span>
+          </div>
+          <div class="tag">
+            <span class="tag-dot"></span> Camada executiva
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Total de pedidos analisados</div>
+            <div class="kpi-value" id="kpi-total-pedidos">32.800</div>
+            <div class="kpi-tag">Base Orders (2023) · valor ilustrativo</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Pedidos com itens faltando</div>
+            <div class="kpi-value kpi-alert" id="kpi-pedidos">1.254</div>
+            <div class="kpi-tag">Orders[items_missing > 0]</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Perda financeira estimada</div>
+            <div class="kpi-value kpi-alert" id="kpi-perda">$ 328.450</div>
+            <div class="kpi-tag">Soma de produtos em Missing Items × preço</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Taxa de pedidos com problema</div>
+            <div class="kpi-value" id="kpi-taxa">3,8%</div>
+            <div class="kpi-tag">Pedidos com problema / Total de pedidos</div>
+          </div>
+        </div>
+
+        <div class="kpi-row" style="margin-top: 8px;">
+          <div class="kpi-card">
+            <div class="kpi-label">% de pedidos com falhas sistêmicas</div>
+            <div class="kpi-value kpi-alert" id="kpi-falhas-sistemicas">0,8%</div>
+            <div class="kpi-tag">items_missing &gt; 0 sem detalhamento em Missing Items</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Valor médio por item fraudado</div>
+            <div class="kpi-value" id="kpi-ticket-medio-fraude">$ 145</div>
+            <div class="kpi-tag">Electronics: $ 320 · Supermarket: $ 45</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Motoristas com reincidência &gt; 3x</div>
+            <div class="kpi-value kpi-alert" id="kpi-motoristas-reincidentes">7</div>
+            <div class="kpi-tag">Motoristas acima do limiar de risco</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Consumidores com valor reclamado &gt; $500</div>
+            <div class="kpi-value kpi-alert" id="kpi-clientes-suspeitos">18</div>
+            <div class="kpi-tag">Candidatos a revisão manual</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Perdas por categoria</div>
+              <div class="chart-subtitle">Supermarket vs Electronics – valor total de itens declarados como não
+                recebidos.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-perdas-categoria"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Distribuição de perdas por região</div>
+              <div class="chart-subtitle">Distribuição geográfica das perdas na região Central da Flórida.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-perdas-regiao"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="insight-box">
+          <strong>Insight esperado:</strong> identificar rapidamente se as perdas estão concentradas em poucas regiões e
+          se Supermarket domina o volume de fraudes, enquanto Electronics concentra alto ticket médio.
+        </div>
+      </div>
+
+      <!-- MOTORISTAS -->
+      <div class="section" data-section-id="motoristas" style="display:none;">
+        <div class="section-header">
+          <div>
+            <h2>Motoristas Reincidentes</h2>
+            <span>Ranking de entregadores por reclamações, taxa de problema e perda associada.</span>
+          </div>
+          <div class="tag">
+            <span class="tag-dot" style="background: var(--accent-alert);"></span> Foco em fraude de motorista
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Top 10 motoristas por reclamações</div>
+              <div class="chart-subtitle">Total de pedidos × pedidos com itens faltando × taxa de reclamação.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-motoristas-reclamacoes"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Perdas por motorista</div>
+              <div class="chart-subtitle">Ranking de motoristas pelo valor total de perdas estimadas.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-motoristas-perdas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Taxa de problema por motorista</div>
+              <div class="chart-subtitle">Percentual de entregas com problemas por motorista.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-motoristas-taxa"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Scatter: frequência × perda</div>
+              <div class="chart-subtitle">Motoristas com muitas ocorrências e alto valor de perda são os mais críticos.
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-motoristas-scatter"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRODUTOS -->
+      <div class="section" data-section-id="produtos" style="display:none;">
+        <div class="section-header">
+          <div>
+            <h2>Produtos Vulneráveis</h2>
+            <span>Itens mais frequentemente reportados como não recebidos e perdas associadas.</span>
+          </div>
+          <div class="tag">
+            <span class="tag-dot" style="background: var(--accent-supermarket);"></span> Foco em itens e categorias
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Frequência de itens declarados como ausentes</div>
+              <div class="chart-subtitle">Ranking de produtos pela quantidade de vezes em Missing Items.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-produtos-frequencia"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Perdas financeiras por produto</div>
+              <div class="chart-subtitle">Itens que mais geram prejuízo agregado, não apenas frequência.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-produtos-perdas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="insight-box">
+          <strong>Insight esperado:</strong> alguns itens baratos podem aparecer muito (problema operacional),
+          enquanto poucos itens caros podem responder pela maior parte da perda financeira.
+        </div>
+      </div>
+
+      <!-- REGIÕES -->
+      <div class="section" data-section-id="regioes" style="display:none;">
+        <div class="section-header">
+          <div>
+            <h2>Cruzamento por Região</h2>
+            <span>Mapa de risco por região combinando produtos vulneráveis e categorias.</span>
+          </div>
+          <div class="tag">
+            <span class="tag-dot" style="background: var(--accent-electronics);"></span> Foco geográfico
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Mapa interativo de perdas por região</div>
+              <div class="chart-subtitle">Visualização geográfica das perdas na região Central da Flórida. Clique em uma
+                região para filtrar o dashboard.</div>
+            </div>
+            <div class="mapa-container">
+              <div id="mapa-regioes"></div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Comparação de categorias por região</div>
+              <div class="chart-subtitle">Identificar se determinadas regiões são mais sensíveis a uma categoria
+                específica.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-regiao-comparacao"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Região mais crítica</div>
+            <div class="kpi-value kpi-alert" id="regiao-critica">Winter Park</div>
+            <div class="kpi-tag">Maior perda financeira total</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">% dos pedidos com problema na região selecionada</div>
+            <div class="kpi-value" id="regiao-taxa">5,2%</div>
+            <div class="kpi-tag">Comparado à média de 3,8%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INTEGRAÇÃO -->
+      <div class="section" data-section-id="integracao" style="display:none;">
+        <div class="section-header">
+          <div>
+            <h2>Integração Motoristas + Produtos + Regiões</h2>
+            <span>Camada de análise detalhada para investigações e auditoria.</span>
+          </div>
+          <div class="tag">
+            <span class="tag-dot"></span> Exploração analítica
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div>
+            <div class="chart-title">Tabela detalhada de ocorrências</div>
+            <div class="chart-subtitle">Cada linha é uma combinação de pedido × motorista × produto × região.</div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="data-table" id="tabela-integracao">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Região</th>
+                  <th>Motorista</th>
+                  <th>Produto</th>
+                  <th>Categoria</th>
+                  <th>Valor</th>
+                  <th>Cliente</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-integracao-body">
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 16px;">
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Perdas ao longo do tempo</div>
+              <div class="chart-subtitle">Evolução temporal das perdas financeiras.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-tempo"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Distribuição de perdas por hora do dia</div>
+              <div class="chart-subtitle">Identificar horários críticos para fraudes.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-horario"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONSUMIDORES -->
+      <div class="section" data-section-id="consumidores" style="display:none;">
+        <div class="section-header">
+          <div>
+            <h2>Fraudes Potenciais de Consumidores</h2>
+            <span>Clientes com alta reincidência de reclamações e alto valor reclamado.</span>
+          </div>
+          <div class="tag">
+            <span class="tag-dot" style="background: var(--accent-alert);"></span> Foco em fraude de cliente
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Ranking de clientes por nº de reclamações</div>
+              <div class="chart-subtitle">Top 10 clientes com maior quantidade de pedidos com itens faltando.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-clientes-reclamacoes"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div>
+              <div class="chart-title">Ranking de clientes por valor reclamado</div>
+              <div class="chart-subtitle">Clientes que concentram maior perda financeira estimada.</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart-clientes-perdas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-top: 12px;">
+          <div>
+            <div class="chart-title">Scatter: nº de reclamações × valor reclamado</div>
+            <div class="chart-subtitle">Clientes com muitos casos e alto valor são candidatos a investigação manual.
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-clientes-scatter"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONCLUSÃO -->
+      <div class="section" data-section-id="conclusao" style="display:none;">
+        <div class="section-header">
+          <div>
+            <h2>Conclusão Executiva & Recomendações</h2>
+            <span>Resumo dos principais achados e ações sugeridas para reduzir fraudes.</span>
+          </div>
+          <div class="tag">
+            <span class="tag-dot"></span> Resumo para diretoria
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Total de pedidos analisados</div>
+            <div class="kpi-value" id="kpi-conc-total-pedidos">32.800</div>
+            <div class="kpi-tag">Base anual considerada (2023)</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">% de pedidos com falhas sistêmicas</div>
+            <div class="kpi-value kpi-alert" id="kpi-conc-falhas-sistemicas">0,8%</div>
+            <div class="kpi-tag">items_missing &gt; 0 sem detalhamento</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Motoristas reincidentes em zona de risco</div>
+            <div class="kpi-value kpi-alert" id="kpi-conc-motoristas-reincidentes">7</div>
+            <div class="kpi-tag">&gt; 3 ocorrências com itens faltando</div>
+          </div>
+        </div>
+
+        <div class="kpi-row" style="margin-top: 8px;">
+          <div class="kpi-card">
+            <div class="kpi-label">Consumidores com padrão suspeito</div>
+            <div class="kpi-value kpi-alert" id="kpi-conc-clientes-suspeitos">18</div>
+            <div class="kpi-tag">Valor reclamado &gt; $500 e alta reincidência</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Valor médio por item fraudado</div>
+            <div class="kpi-value" id="kpi-conc-ticket-medio-fraude">$ 145</div>
+            <div class="kpi-tag">Electronics: $ 320 · Supermarket: $ 45</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Perdas totais estimadas</div>
+            <div class="kpi-value kpi-alert" id="kpi-conc-perdas">$ 328.450</div>
+            <div class="kpi-tag">Cenário base (2023)</div>
+          </div>
+        </div>
+
+        <div class="insight-box" style="margin-top: 12px;">
+          <strong>Resumo executivo:</strong> Em 2023, foram analisados <strong>32.800 pedidos</strong> na região Central
+          da Flórida, com
+          <strong>1.254 pedidos apresentando itens faltando (3,8%)</strong>, resultando em perdas estimadas de
+          <strong>$ 328.450</strong>. Identificamos <strong>7 motoristas reincidentes</strong> concentrando parte
+          relevante das ocorrências
+          e <strong>18 consumidores com padrão suspeito</strong> (valor reclamado &gt; $500), que juntos respondem por
+          parcela
+          desproporcional das perdas. Aproximadamente <strong>0,8% dos pedidos</strong> apresentam falhas sistêmicas de
+          registro (items_missing &gt; 0 sem detalhamento), indicando necessidade de ajuste de processo.
+          A implementação de auditoria direcionada, prova de entrega para itens de alto valor e um score de risco de
+          cliente
+          tem potencial de reduzir as perdas em até <strong>32%</strong>, evitando cerca de <strong>$ 105.000</strong>
+          em prejuízos no próximo ciclo.
+        </div>
+
+        <div class="grid-2" style="margin-top: 16px;">
+          <div class="chart-card">
+            <div class="chart-title">Principais conclusões</div>
+            <div class="chart-subtitle">Pontos-chave extraídos do dashboard.</div>
+            <ul class="insight-box" style="margin-left: 14px; list-style: disc;">
+              <li>Fraudes em <strong>Supermarket</strong> concentram o volume de reclamações.</li>
+              <li>Poucos motoristas apresentam <strong>taxa de problema muito acima da média</strong>.</li>
+              <li>Determinadas regiões exibem padrão recorrente de problemas em horários específicos.</li>
+              <li>Um grupo pequeno de clientes concentra <strong>alto valor reclamado</strong>, sugerindo possível
+                fraude de consumidor.</li>
+              <li>Existem pedidos com items_missing > 0 sem detalhamento em Missing Items, sugerindo <strong>falha de
+                  sistema/processo</strong>.</li>
+            </ul>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Recomendações estratégicas</div>
+            <div class="chart-subtitle">Medidas para reduzir fraudes e melhorar o processo.</div>
+            <ul class="insight-box" style="margin-left: 14px; list-style: disc;">
+              <li>Implementar <strong>auditoria periódica</strong> em motoristas com taxa de problema acima de um
+                limiar.</li>
+              <li>Exigir <strong>prova de entrega</strong> (foto, geolocalização, assinatura digital) para produtos de
+                alto valor.</li>
+              <li>Criar um <strong>score de risco do cliente</strong> com base em reincidência e valor reclamado.</li>
+              <li>Revisar e reforçar o fluxo de dados para garantir que todo items_missing possua detalhamento de
+                produtos.</li>
+              <li>Testar políticas diferentes (A/B) para reembolso automático vs revisão manual em casos de alto risco.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <footer>
+    Dashboard conceitual baseado nos dados: Orders, Missing Items, Drivers, Products e Customers.
+    Estrutura pronta para ser conectada a dados reais e bibliotecas de visualização (Chart.js).
+  </footer>
+
+  <script>
+    // ========== DADOS MOCKADOS ==========
+    const dadosBase = {
+      categorias: {
+        Supermarket: { perdas: 210000, pedidos: 892, itens: 1543 },
+        Electronics: { perdas: 118450, pedidos: 362, itens: 487 }
+      },
+      regioes: {
+        'Winter Park': { perdas: 95200, pedidos: 342, supermarket: 62000, electronics: 33200, lat: 28.5994, lng: -81.3392 },
+        'Altamonte Springs': { perdas: 78300, pedidos: 289, supermarket: 51000, electronics: 27300, lat: 28.6612, lng: -81.3656 },
+        'Clermont': { perdas: 68950, pedidos: 256, supermarket: 45000, electronics: 23950, lat: 28.5494, lng: -81.7729 },
+        'Orlando': { perdas: 86000, pedidos: 367, supermarket: 52000, electronics: 34000, lat: 28.5383, lng: -81.3792 }
+      },
+      motoristas: [
+        { nome: 'Carlos Silva', reclamacoes: 47, perdas: 28400, totalPedidos: 523, taxa: 9.0 },
+        { nome: 'João Santos', reclamacoes: 42, perdas: 24800, totalPedidos: 489, taxa: 8.6 },
+        { nome: 'Maria Oliveira', reclamacoes: 38, perdas: 22100, totalPedidos: 512, taxa: 7.4 },
+        { nome: 'Pedro Costa', reclamacoes: 35, perdas: 19500, totalPedidos: 478, taxa: 7.3 },
+        { nome: 'Ana Lima', reclamacoes: 32, perdas: 18200, totalPedidos: 501, taxa: 6.4 },
+        { nome: 'Lucas Ferreira', reclamacoes: 29, perdas: 16800, totalPedidos: 445, taxa: 6.5 },
+        { nome: 'Juliana Souza', reclamacoes: 27, perdas: 15400, totalPedidos: 467, taxa: 5.8 },
+        { nome: 'Roberto Alves', reclamacoes: 24, perdas: 13900, totalPedidos: 423, taxa: 5.7 },
+        { nome: 'Fernanda Rocha', reclamacoes: 22, perdas: 12600, totalPedidos: 398, taxa: 5.5 },
+        { nome: 'Ricardo Mendes', reclamacoes: 20, perdas: 11300, totalPedidos: 412, taxa: 4.9 }
+      ],
+      produtos: [
+        { nome: 'iPhone 14 Pro', frequencia: 87, perdas: 75900, categoria: 'Electronics' },
+        { nome: 'Samsung TV 55"', frequencia: 64, perdas: 38400, categoria: 'Electronics' },
+        { nome: 'Carne Bovina Premium', frequencia: 156, perdas: 18720, categoria: 'Supermarket' },
+        { nome: 'PlayStation 5', frequencia: 42, perdas: 21000, categoria: 'Electronics' },
+        { nome: 'Whisky Premium', frequencia: 134, perdas: 16080, categoria: 'Supermarket' },
+        { nome: 'Notebook Dell', frequencia: 38, perdas: 22800, categoria: 'Electronics' },
+        { nome: 'Queijos Importados', frequencia: 189, perdas: 15120, categoria: 'Supermarket' },
+        { nome: 'AirPods Pro', frequencia: 95, perdas: 23750, categoria: 'Electronics' },
+        { nome: 'Vinhos Premium', frequencia: 142, perdas: 14200, categoria: 'Supermarket' },
+        { nome: 'Cafeteira Nespresso', frequencia: 71, perdas: 14200, categoria: 'Electronics' }
+      ],
+      clientes: [
+        { nome: 'Cliente A', reclamacoes: 23, perdas: 18400 },
+        { nome: 'Cliente B', reclamacoes: 19, perdas: 15200 },
+        { nome: 'Cliente C', reclamacoes: 17, perdas: 13600 },
+        { nome: 'Cliente D', reclamacoes: 15, perdas: 12000 },
+        { nome: 'Cliente E', reclamacoes: 14, perdas: 11200 },
+        { nome: 'Cliente F', reclamacoes: 12, perdas: 9600 },
+        { nome: 'Cliente G', reclamacoes: 11, perdas: 8800 },
+        { nome: 'Cliente H', reclamacoes: 10, perdas: 8000 },
+        { nome: 'Cliente I', reclamacoes: 9, perdas: 7200 },
+        { nome: 'Cliente J', reclamacoes: 8, perdas: 6400 }
+      ],
+      tempo: [
+        { mes: 'Jan', perdas: 24500 },
+        { mes: 'Fev', perdas: 26800 },
+        { mes: 'Mar', perdas: 28200 },
+        { mes: 'Abr', perdas: 25900 },
+        { mes: 'Mai', perdas: 27600 },
+        { mes: 'Jun', perdas: 29400 },
+        { mes: 'Jul', perdas: 31200 },
+        { mes: 'Ago', perdas: 28900 },
+        { mes: 'Set', perdas: 27100 },
+        { mes: 'Out', perdas: 29800 },
+        { mes: 'Nov', perdas: 32400 },
+        { mes: 'Dez', perdas: 35650 }
+      ],
+      horarios: [
+        { hora: '6h-9h', perdas: 18200 },
+        { hora: '9h-12h', perdas: 42300 },
+        { hora: '12h-15h', perdas: 56800 },
+        { hora: '15h-18h', perdas: 89400 },
+        { hora: '18h-21h', perdas: 94200 },
+        { hora: '21h-24h', perdas: 27550 }
+      ]
+    };
+
+    let dadosFiltrados = JSON.parse(JSON.stringify(dadosBase));
+    let charts = {};
+
+    // ========== CONFIGURAÇÃO PADRÃO DOS GRÁFICOS ==========
+    Chart.defaults.color = '#9ca3af';
+    Chart.defaults.borderColor = '#1f2937';
+    Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
+    Chart.defaults.font.size = 11;
+
+    // ========== MAPA INTERATIVO (LEAFLET) ==========
+    let mapaRegioes = null;
+    let camadaMarcadores = null;
+
+    function criarMapaInterativo() {
+      const mapaDiv = document.getElementById('mapa-regioes');
+      if (!mapaDiv) return;
+
+      // Se já existe mapa, não recria o objeto (evita bug do Leaflet)
+      if (!mapaRegioes) {
+        mapaRegioes = L.map('mapa-regioes', {
+          zoomControl: true,
+          attributionControl: false
+        }).setView([28.55, -81.4], 9);
+
+        // Tile layer dark mode
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          maxZoom: 18
+        }).addTo(mapaRegioes);
+      }
+
+      // Remove camada antiga de círculos/markers, se existir
+      if (camadaMarcadores) {
+        camadaMarcadores.remove();
+      }
+
+      camadaMarcadores = L.layerGroup().addTo(mapaRegioes);
+
+      const regioes = Object.entries(dadosFiltrados.regioes);
+
+      if (regioes.length === 0) return;
+
+      // Para dimensionar círculos
+      const maxPerda = Math.max(...regioes.map(([_, r]) => r.perdas));
+
+      regioes.forEach(([nome, dados]) => {
+        if (!dados.lat || !dados.lng) return;
+
+        const intensidade = dados.perdas / maxPerda;
+        const raio = 2000 + intensidade * 8000;
+
+        // Círculo proporcional à perda
+        const circle = L.circle([dados.lat, dados.lng], {
+          radius: raio,
+          color: '#ef4444',
+          weight: 1,
+          fillColor: '#ef4444',
+          fillOpacity: 0.35
+        }).addTo(camadaMarcadores);
+
+        // Marcador clicável para interação/filtro
+        const marker = L.marker([dados.lat, dados.lng]).addTo(camadaMarcadores);
+
+        const popupHtml = `
+          <div style="font-size:12px; color: #e5e7eb;">
+            <strong>${nome}</strong><br/>
+            Perdas: $${dados.perdas.toLocaleString()}<br/>
+            Pedidos com problema: ${dados.pedidos.toLocaleString()}<br/>
+            Supermarket: $${dados.supermarket.toLocaleString()}<br/>
+            Electronics: $${dados.electronics.toLocaleString()}<br/>
+            <small style="color: #9ca3af;">Clique para filtrar pela região</small>
+          </div>
+        `;
+
+        marker.bindPopup(popupHtml);
+
+        marker.on('click', () => {
+          const selectRegiao = document.getElementById('filtro-regiao');
+          if (selectRegiao) {
+            selectRegiao.value = nome;
+            aplicarFiltros();
+          }
+        });
+      });
+
+      // Ajusta o mapa para enquadrar todos os pontos
+      const bounds = L.latLngBounds(
+        regioes
+          .filter(([_, r]) => r.lat && r.lng)
+          .map(([_, r]) => [r.lat, r.lng])
+      );
+      if (bounds.isValid()) {
+        mapaRegioes.fitBounds(bounds, { padding: [20, 20] });
+      }
+    }
+
+    // ========== FUNÇÕES DE CRIAÇÃO DE GRÁFICOS ==========
+    function criarGraficoPerdaCategoria() {
+      const ctx = document.getElementById('chart-perdas-categoria');
+      if (!ctx) return;
+
+      if (charts.perdaCategoria) charts.perdaCategoria.destroy();
+
+      charts.perdaCategoria = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Supermarket', 'Electronics'],
+          datasets: [{
+            label: 'Perdas ($)',
+            data: [
+              dadosFiltrados.categorias.Supermarket.perdas,
+              dadosFiltrados.categorias.Electronics.perdas
+            ],
+            backgroundColor: ['#22c55e', '#3b82f6'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Perdas: $${context.parsed.y.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoPerdaRegiao() {
+      const ctx = document.getElementById('chart-perdas-regiao');
+      if (!ctx) return;
+
+      if (charts.perdaRegiao) charts.perdaRegiao.destroy();
+
+      const regioes = Object.keys(dadosFiltrados.regioes);
+      const perdas = regioes.map(r => dadosFiltrados.regioes[r].perdas);
+
+      charts.perdaRegiao = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: regioes,
+          datasets: [{
+            data: perdas,
+            backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'],
+            borderWidth: 2,
+            borderColor: '#0f172a'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { padding: 10, font: { size: 10 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => `${context.label}: $${context.parsed.toLocaleString()}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoMotoristasReclamacoes() {
+      const ctx = document.getElementById('chart-motoristas-reclamacoes');
+      if (!ctx) return;
+
+      if (charts.motoristasReclamacoes) charts.motoristasReclamacoes.destroy();
+
+      charts.motoristasReclamacoes = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dadosFiltrados.motoristas.map(m => m.nome),
+          datasets: [{
+            label: 'Reclamações',
+            data: dadosFiltrados.motoristas.map(m => m.reclamacoes),
+            backgroundColor: '#ef4444',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function criarGraficoMotoristasPerdas() {
+      const ctx = document.getElementById('chart-motoristas-perdas');
+      if (!ctx) return;
+
+      if (charts.motoristasPerdas) charts.motoristasPerdas.destroy();
+
+      charts.motoristasPerdas = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dadosFiltrados.motoristas.map(m => m.nome),
+          datasets: [{
+            label: 'Perdas ($)',
+            data: dadosFiltrados.motoristas.map(m => m.perdas),
+            backgroundColor: '#f59e0b',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Perdas: $${context.parsed.x.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoMotoristasTaxa() {
+      const ctx = document.getElementById('chart-motoristas-taxa');
+      if (!ctx) return;
+
+      if (charts.motoristasTaxa) charts.motoristasTaxa.destroy();
+
+      charts.motoristasTaxa = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dadosFiltrados.motoristas.map(m => m.nome),
+          datasets: [{
+            label: 'Taxa de Problema (%)',
+            data: dadosFiltrados.motoristas.map(m => m.taxa),
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => value + '%'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoMotoristasScatter() {
+      const ctx = document.getElementById('chart-motoristas-scatter');
+      if (!ctx) return;
+
+      if (charts.motoristasScatter) charts.motoristasScatter.destroy();
+
+      charts.motoristasScatter = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Motoristas',
+            data: dadosFiltrados.motoristas.map(m => ({
+              x: m.reclamacoes,
+              y: m.perdas,
+              nome: m.nome
+            })),
+            backgroundColor: '#ef4444',
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const ponto = context.raw;
+                  return `${ponto.nome}: ${ponto.x} reclamações, $${ponto.y.toLocaleString()}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Reclamações', color: '#9ca3af' },
+              beginAtZero: true
+            },
+            y: {
+              title: { display: true, text: 'Perdas ($)', color: '#9ca3af' },
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoProdutosFrequencia() {
+      const ctx = document.getElementById('chart-produtos-frequencia');
+      if (!ctx) return;
+
+      if (charts.produtosFrequencia) charts.produtosFrequencia.destroy();
+
+      charts.produtosFrequencia = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dadosFiltrados.produtos.map(p => p.nome),
+          datasets: [{
+            label: 'Frequência',
+            data: dadosFiltrados.produtos.map(p => p.frequencia),
+            backgroundColor: dadosFiltrados.produtos.map(p =>
+              p.categoria === 'Supermarket' ? '#22c55e' : '#3b82f6'
+            ),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function criarGraficoProdutosPerdas() {
+      const ctx = document.getElementById('chart-produtos-perdas');
+      if (!ctx) return;
+
+      if (charts.produtosPerdas) charts.produtosPerdas.destroy();
+
+      charts.produtosPerdas = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dadosFiltrados.produtos.map(p => p.nome),
+          datasets: [{
+            label: 'Perdas ($)',
+            data: dadosFiltrados.produtos.map(p => p.perdas),
+            backgroundColor: dadosFiltrados.produtos.map(p =>
+              p.categoria === 'Supermarket' ? '#22c55e' : '#3b82f6'
+            ),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Perdas: $${context.parsed.x.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoRegiaoCategoria() {
+      const ctx = document.getElementById('chart-regiao-categoria');
+      if (!ctx) return;
+
+      if (charts.regiaoCategoria) charts.regiaoCategoria.destroy();
+
+      const regioes = Object.keys(dadosFiltrados.regioes);
+
+      charts.regiaoCategoria = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: regioes,
+          datasets: [
+            {
+              label: 'Supermarket',
+              data: regioes.map(r => dadosFiltrados.regioes[r].supermarket),
+              backgroundColor: '#22c55e',
+              borderRadius: 6
+            },
+            {
+              label: 'Electronics',
+              data: regioes.map(r => dadosFiltrados.regioes[r].electronics),
+              backgroundColor: '#3b82f6',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { padding: 10, font: { size: 10 } }
+            }
+          },
+          scales: {
+            x: { stacked: true },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoRegiaoComparacao() {
+      const ctx = document.getElementById('chart-regiao-comparacao');
+      if (!ctx) return;
+
+      if (charts.regiaoComparacao) charts.regiaoComparacao.destroy();
+
+      const regioes = Object.keys(dadosFiltrados.regioes);
+
+      charts.regiaoComparacao = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: regioes,
+          datasets: [
+            {
+              label: 'Supermarket',
+              data: regioes.map(r => dadosFiltrados.regioes[r].supermarket),
+              borderColor: '#22c55e',
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Electronics',
+              data: regioes.map(r => dadosFiltrados.regioes[r].electronics),
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              fill: true,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { padding: 10, font: { size: 10 } }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoClientesReclamacoes() {
+      const ctx = document.getElementById('chart-clientes-reclamacoes');
+      if (!ctx) return;
+
+      if (charts.clientesReclamacoes) charts.clientesReclamacoes.destroy();
+
+      charts.clientesReclamacoes = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dadosFiltrados.clientes.map(c => c.nome),
+          datasets: [{
+            label: 'Reclamações',
+            data: dadosFiltrados.clientes.map(c => c.reclamacoes),
+            backgroundColor: '#ef4444',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function criarGraficoClientesPerdas() {
+      const ctx = document.getElementById('chart-clientes-perdas');
+      if (!ctx) return;
+
+      if (charts.clientesPerdas) charts.clientesPerdas.destroy();
+
+      charts.clientesPerdas = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dadosFiltrados.clientes.map(c => c.nome),
+          datasets: [{
+            label: 'Perdas ($)',
+            data: dadosFiltrados.clientes.map(c => c.perdas),
+            backgroundColor: '#f59e0b',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Perdas: $${context.parsed.y.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoClientesScatter() {
+      const ctx = document.getElementById('chart-clientes-scatter');
+      if (!ctx) return;
+
+      if (charts.clientesScatter) charts.clientesScatter.destroy();
+
+      charts.clientesScatter = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Clientes',
+            data: dadosFiltrados.clientes.map(c => ({
+              x: c.reclamacoes,
+              y: c.perdas,
+              nome: c.nome
+            })),
+            backgroundColor: '#ef4444',
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const ponto = context.raw;
+                  return `${ponto.nome}: ${ponto.x} reclamações, $${ponto.y.toLocaleString()}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Reclamações', color: '#9ca3af' },
+              beginAtZero: true
+            },
+            y: {
+              title: { display: true, text: 'Perdas ($)', color: '#9ca3af' },
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoTempo() {
+      const ctx = document.getElementById('chart-tempo');
+      if (!ctx) return;
+
+      if (charts.tempo) charts.tempo.destroy();
+
+      charts.tempo = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dadosFiltrados.tempo.map(t => t.mes),
+          datasets: [{
+            label: 'Perdas ($)',
+            data: dadosFiltrados.tempo.map(t => t.perdas),
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Perdas: $${context.parsed.y.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function criarGraficoHorario() {
+      const ctx = document.getElementById('chart-horario');
+      if (!ctx) return;
+
+      if (charts.horario) charts.horario.destroy();
+
+      charts.horario = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dadosFiltrados.horarios.map(h => h.hora),
+          datasets: [{
+            label: 'Perdas ($)',
+            data: dadosFiltrados.horarios.map(h => h.perdas),
+            backgroundColor: '#6366f1',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Perdas: $${context.parsed.y.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => '$' + (value / 1000) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function preencherTabelaIntegracao() {
+      const tbody = document.getElementById('tabela-integracao-body');
+      if (!tbody) return;
+
+      const dadosTabela = [
+        { data: '2024-01-15', regiao: 'Winter Park', motorista: 'Carlos Silva', produto: 'iPhone 14 Pro', categoria: 'Electronics', valor: '$899', cliente: 'Cliente A' },
+        { data: '2024-01-16', regiao: 'Orlando', motorista: 'João Santos', produto: 'Samsung TV 55"', categoria: 'Electronics', valor: '$599', cliente: 'Cliente B' },
+        { data: '2024-01-17', regiao: 'Clermont', motorista: 'Maria Oliveira', produto: 'Carne Bovina Premium', categoria: 'Supermarket', valor: '$120', cliente: 'Cliente C' },
+        { data: '2024-01-18', regiao: 'Altamonte Springs', motorista: 'Pedro Costa', produto: 'PlayStation 5', categoria: 'Electronics', valor: '$499', cliente: 'Cliente D' },
+        { data: '2024-01-19', regiao: 'Winter Park', motorista: 'Ana Lima', produto: 'Whisky Premium', categoria: 'Supermarket', valor: '$120', cliente: 'Cliente E' },
+        { data: '2024-01-20', regiao: 'Orlando', motorista: 'Lucas Ferreira', produto: 'Notebook Dell', categoria: 'Electronics', valor: '$599', cliente: 'Cliente F' },
+        { data: '2024-01-21', regiao: 'Clermont', motorista: 'Juliana Souza', produto: 'Queijos Importados', categoria: 'Supermarket', valor: '$80', cliente: 'Cliente G' },
+        { data: '2024-01-22', regiao: 'Altamonte Springs', motorista: 'Roberto Alves', produto: 'AirPods Pro', categoria: 'Electronics', valor: '$249', cliente: 'Cliente H' }
+      ];
+
+      tbody.innerHTML = dadosTabela.map(d => `
+        <tr>
+          <td>${d.data}</td>
+          <td>${d.regiao}</td>
+          <td>${d.motorista}</td>
+          <td>${d.produto}</td>
+          <td>${d.categoria}</td>
+          <td>${d.valor}</td>
+          <td>${d.cliente}</td>
+        </tr>
+      `).join('');
+    }
+
+    // ========== INICIALIZAÇÃO ==========
+    function inicializarGraficos() {
+      criarGraficoPerdaCategoria();
+      criarGraficoPerdaRegiao();
+      criarGraficoMotoristasReclamacoes();
+      criarGraficoMotoristasPerdas();
+      criarGraficoMotoristasTaxa();
+      criarGraficoMotoristasScatter();
+      criarGraficoProdutosFrequencia();
+      criarGraficoProdutosPerdas();
+      criarGraficoRegiaoCategoria();
+      criarGraficoRegiaoComparacao();
+      criarGraficoClientesReclamacoes();
+      criarGraficoClientesPerdas();
+      criarGraficoClientesScatter();
+      criarGraficoTempo();
+      criarGraficoHorario();
+      preencherTabelaIntegracao();
+      criarMapaInterativo();
+    }
+
+    // ========== NAVEGAÇÃO ENTRE SEÇÕES ==========
+    const tabs = document.querySelectorAll('.nav-tab');
+    const sections = document.querySelectorAll('.section');
+
+    function activateSection(sectionId) {
+      tabs.forEach(t => {
+        t.classList.toggle('active', t.dataset.section === sectionId);
+      });
+      sections.forEach(sec => {
+        sec.style.display = sec.dataset.sectionId === sectionId ? '' : 'none';
+      });
+    }
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.section;
+        activateSection(target);
+      });
+    });
+
+    // ========== FILTROS ==========
+    function aplicarFiltros() {
+      const categoria = document.getElementById('filtro-categoria').value;
+      const regiao = document.getElementById('filtro-regiao').value;
+
+      dadosFiltrados = JSON.parse(JSON.stringify(dadosBase));
+
+      // Filtro de categoria
+      if (categoria !== 'all') {
+        dadosFiltrados.produtos = dadosFiltrados.produtos.filter(p => p.categoria === categoria);
+
+        // Ajustar dados de categoria
+        if (categoria === 'Supermarket') {
+          dadosFiltrados.categorias.Electronics = { perdas: 0, pedidos: 0, itens: 0 };
+        } else {
+          dadosFiltrados.categorias.Supermarket = { perdas: 0, pedidos: 0, itens: 0 };
+        }
+      }
+
+      // Filtro de região
+      if (regiao !== 'all') {
+        const regiaoSelecionada = dadosFiltrados.regioes[regiao];
+        dadosFiltrados.regioes = { [regiao]: regiaoSelecionada };
+      }
+
+      // Atualizar KPIs
+      const totalPedidos = Object.values(dadosFiltrados.categorias).reduce((sum, cat) => sum + cat.pedidos, 0);
+      const totalPerdas = Object.values(dadosFiltrados.categorias).reduce((sum, cat) => sum + cat.perdas, 0);
+
+      document.getElementById('kpi-pedidos').textContent = totalPedidos.toLocaleString();
+      document.getElementById('kpi-perda').textContent = '$' + totalPerdas.toLocaleString();
+
+      // Recriar gráficos
+      inicializarGraficos();
+    }
+
+    document.getElementById('filtro-categoria').addEventListener('change', aplicarFiltros);
+    document.getElementById('filtro-regiao').addEventListener('change', aplicarFiltros);
+    document.getElementById('filtro-periodo').addEventListener('change', aplicarFiltros);
+
+    // ========== INICIAR APLICAÇÃO ==========
+    window.addEventListener('load', () => {
+      inicializarGraficos();
+    });
+  </script>
+</body>
+
+</html>
